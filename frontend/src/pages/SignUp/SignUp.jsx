@@ -4,10 +4,16 @@ import useAuth from "../../hooks/useAuth";
 import { toast } from "react-hot-toast";
 import { TbFidgetSpinner } from "react-icons/tb";
 import { useForm } from "react-hook-form";
+import { imageUpload } from "../../utils";
 
 const SignUp = () => {
-  const { createUser, updateUserProfile, signInWithGoogle, loading } =
-    useAuth();
+  const {
+    createUser,
+    updateUserProfile,
+    signInWithGoogle,
+    loading,
+    setLoading,
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state || "/";
@@ -21,27 +27,31 @@ const SignUp = () => {
 
   // form submit handler
   const onSubmit = async (data) => {
-    console.log(data);
     const { name, image, email, password } = data;
 
     const imageFile = image[0];
-    console.log(imageFile);
 
     try {
+      // Upload image into image bb
+      const imageUrl = await imageUpload(imageFile);
+      console.log(imageUrl);
+
       // 1. User Registration
       const result = await createUser(email, password);
 
       // 2. Generate image url from selected file
 
       // 3. Save username & profile photo
-      await updateUserProfile(name);
+      await updateUserProfile(name, imageUrl);
 
       navigate(from, { replace: true });
       toast.success("Signup Successful");
       console.log(result);
+      setLoading(false);
     } catch (error) {
       console.log(error);
       toast.error(error.message);
+      setLoading(false);
     }
   };
 
@@ -53,9 +63,11 @@ const SignUp = () => {
 
       navigate(from, { replace: true });
       toast.success("Signup Successful");
+      setLoading(false);
     } catch (err) {
       console.log(err);
       toast.error(err?.message);
+      setLoading(false);
     }
   };
   return (
@@ -105,7 +117,6 @@ const SignUp = () => {
                 Profile Image
               </label>
               <input
-                name="image"
                 type="file"
                 id="image"
                 accept="image/*"

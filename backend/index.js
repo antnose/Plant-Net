@@ -16,11 +16,7 @@ const app = express();
 // middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://b12-m11-session.web.app",
-    ],
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
     optionSuccessStatus: 200,
   })
@@ -51,8 +47,41 @@ const client = new MongoClient(process.env.MONGODB_URI, {
     deprecationErrors: true,
   },
 });
+
 async function run() {
   try {
+    const db = client.db("plantsDB");
+    const plantsCollection = db.collection("plants");
+
+    // save a plant in db
+    app.post("/plants", async (req, res) => {
+      const plantData = req.body;
+      console.log(plantData);
+
+      try {
+        const result = await plantsCollection.insertOne(plantData);
+        res.status(200).json({
+          message: "Add Plant Successfully",
+          result,
+        });
+      } catch (error) {
+        res.status(400).json({
+          message: "Failed to add plant",
+          error,
+        });
+      }
+    });
+
+    // Get all plants
+    app.get("/plants", async (req, res) => {
+      const result = await plantsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // ---------------------
+    // ---------------------
+    // ---------------------
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

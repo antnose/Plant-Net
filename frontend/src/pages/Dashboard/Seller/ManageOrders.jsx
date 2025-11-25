@@ -2,10 +2,11 @@ import SellerOrderDataRow from "../../../components/Dashboard/TableRows/SellerOr
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import useAuth from "../../../hooks/useAuth";
+import LoadingSpinner from "../../../components/Shared/LoadingSpinner";
 
 const ManageOrders = () => {
   const { user } = useAuth();
-  const { data: plants = [], isPending } = useQuery({
+  const { data: plants = [], isLoading } = useQuery({
     queryKey: ["plants", user?.email],
     queryFn: async () => {
       const result = await axios(
@@ -14,6 +15,8 @@ const ManageOrders = () => {
       return result.data;
     },
   });
+
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <>
@@ -48,12 +51,7 @@ const ManageOrders = () => {
                     >
                       Quantity
                     </th>
-                    <th
-                      scope="col"
-                      className="px-5 py-3 bg-white  border-b border-gray-200 text-gray-800  text-left text-sm uppercase font-normal"
-                    >
-                      Address
-                    </th>
+
                     <th
                       scope="col"
                       className="px-5 py-3 bg-white  border-b border-gray-200 text-gray-800  text-left text-sm uppercase font-normal"

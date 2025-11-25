@@ -2,19 +2,22 @@ import PlantDataRow from "../../../components/Dashboard/TableRows/PlantDataRow";
 import { useQuery } from "@tanstack/react-query";
 import useAuth from "../../../hooks/useAuth";
 import axios from "axios";
+import LoadingSpinner from "../../../components/Shared/LoadingSpinner";
 
 const MyInventory = () => {
   const { user } = useAuth();
-  const { data: inventories = [] } = useQuery({
+  const { data: inventories = [], isLoading } = useQuery({
     queryKey: ["inventory", user?.email],
     queryFn: async () => {
       const result = await axios(
-        `${import.meta.env.VITE_API_URL}/my-inventory/ib@gmail.com`
+        `${import.meta.env.VITE_API_URL}/my-inventory/${user?.email}`
       );
 
       return result.data;
     },
   });
+
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <>

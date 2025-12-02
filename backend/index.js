@@ -54,6 +54,7 @@ async function run() {
     const db = client.db("plantsDB");
     const plantsCollection = db.collection("plants");
     const ordersCollection = db.collection("orders");
+    const usersCollection = db.collection("users");
 
     // save a plant in db
     app.post("/plants", async (req, res) => {
@@ -201,6 +202,52 @@ async function run() {
         .find({ "seller.email": email })
         .toArray();
       res.send(result);
+    });
+
+    // Save or update a user in db
+    app.post("/user", async (req, res) => {
+      try {
+        const userData = req.body;
+        userData.created_at = new Date().toISOString();
+        userData.last_loggedIn = new Date().toISOString();
+        userData.role = "customer";
+
+        const query = {
+          email: userData?.email,
+        };
+
+        const alreadyExists = await usersCollection.findOne({
+          email: userData?.email,
+        });
+
+        console.log("User already exists: ", !!alreadyExists);
+
+        if (alreadyExists) {
+          console.log("Updating user info.......");
+          const result = await usersCollection.updateOne(query, {
+            $set: {
+              last_loggedIn: new Date().toISOString(),
+            },
+          });
+
+          console.log("Saving new user info.......");
+          return res.send(result);
+        }
+
+        const result = await usersCollection.insertOne(userData);
+        res.send(result);
+      } catch (error) {
+        console.dir(error);
+      }
+    });
+
+    // get a user's role
+    app.get("/user/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send({
+        role: result?.role,
+      });
     });
 
     // ---------------------

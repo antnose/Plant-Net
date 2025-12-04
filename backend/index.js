@@ -15,27 +15,19 @@ admin.initializeApp({
 
 const app = express();
 // middleware
-app.use(
-  cors({
-    origin: [process.env.CLIENT_DOMAIN],
-    credentials: true,
-    optionSuccessStatus: 200,
-  })
-);
+app.use(cors());
 app.use(express.json());
 
 // jwt middlewares
 const verifyJWT = async (req, res, next) => {
   const token = req?.headers?.authorization?.split(" ")[1];
-  console.log(token);
   if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.tokenEmail = decoded.email;
-    console.log(decoded);
+
     next();
   } catch (err) {
-    console.log(err);
     return res.status(401).send({ message: "Unauthorized Access!", err });
   }
 };
@@ -55,6 +47,7 @@ async function run() {
     const plantsCollection = db.collection("plants");
     const ordersCollection = db.collection("orders");
     const usersCollection = db.collection("users");
+    const sellerRequestsCollection = db.collection("sellerRequests");
 
     // save a plant in db
     app.post("/plants", async (req, res) => {
@@ -169,7 +162,9 @@ async function run() {
             orderId: result?.insertedId,
           });
         } catch (error) {
-          console.log(error);
+          res.send({
+            message: `Sorry something wrong!`,
+          });
         }
       }
 
@@ -180,9 +175,10 @@ async function run() {
     });
 
     // Get all orders for a customer by email
-    app.get("/my-orders/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await ordersCollection.find({ customer: email }).toArray();
+    app.get("/my-orders", verifyJWT, async (req, res) => {
+      const result = await ordersCollection
+        .find({ customer: req.tokenEmail })
+        .toArray();
       res.send(result);
     });
 
@@ -220,17 +216,13 @@ async function run() {
           email: userData?.email,
         });
 
-        console.log("User already exists: ", !!alreadyExists);
-
         if (alreadyExists) {
-          console.log("Updating user info.......");
           const result = await usersCollection.updateOne(query, {
             $set: {
               last_loggedIn: new Date().toISOString(),
             },
           });
 
-          console.log("Saving new user info.......");
           return res.send(result);
         }
 
@@ -242,12 +234,57 @@ async function run() {
     });
 
     // get a user's role
-    app.get("/user/role/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await usersCollection.findOne({ email });
+    app.get("/user/role", verifyJWT, async (req, res) => {
+      const result = await usersCollection.findOne({ email: req.tokenEmail });
       res.send({
         role: result?.role,
       });
+    });
+
+    // save become-seller-request
+    app.post("/become-seller", verifyJWT, async (req, res) => {
+      const email = req.tokenEmail;
+      const alreadyExists = await sellerRequestsCollection.findOne({ email });
+      if (alreadyExists) {
+        return res
+          .status(409)
+          .send({ message: "Already requested, please wait!" });
+      }
+
+      const result = await sellerRequestsCollection.insertOne({ email });
+      res.send(result);
+    });
+
+    // get all seller request for admin
+    app.get("/seller-request", verifyJWT, async (req, res) => {
+      const result = await sellerRequestsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get all users for admin
+    app.get("/users", verifyJWT, async (req, res) => {
+      const adminEmail = req.tokenEmail;
+      const result = await usersCollection
+        .find({ email: { $ne: adminEmail } })
+        .toArray();
+      res.send(result);
+    });
+
+    // update a user's role
+    app.patch("/update-role", verifyJWT, async (req, res) => {
+      const { email, role } = req.body;
+      try {
+        const result = await usersCollection.updateOne(
+          { email },
+          { $set: { role } }
+        );
+
+        await sellerRequestsCollection.deleteOne({ email });
+
+        res.send(result);
+      } catch (error) {
+        console.dir(`update a user's role`, error);
+      }
     });
 
     // ---------------------
@@ -256,9 +293,9 @@ async function run() {
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
   }
@@ -270,5 +307,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  // console.log(`Server is running on port ${port}`);
 });
